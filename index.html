@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수열 극한 탐색기</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --gold: #f0b429;
+    --gold-dim: #b8862a;
+    --cyan: #38bdf8;
+    --cyan-dim: #1a6a8a;
+    --red: #f87171;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --text-mid: #94a3b8;
+    --dot: #6366f1;
+    --dot-last: #f43f5e;
+    --limit-line: rgba(240,180,41,0.5);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 300;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 60px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 5vw, 46px);
+    font-weight: 400;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  header h1 span {
+    color: var(--gold);
+    font-style: italic;
+  }
+  .header-sub {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+  }
+
+  /* Main layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 780px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  /* Formula display */
+  .formula-display {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .formula-display .fn-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .formula-rendered {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 56px;
+  }
+  .formula-frac {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .formula-num, .formula-den {
+    font-size: 20px;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .formula-bar {
+    width: 100%;
+    height: 1.5px;
+    background: var(--text);
+    min-width: 60px;
+  }
+  .formula-coeff { color: var(--cyan); font-style: italic; }
+  .formula-var { color: var(--gold); font-style: italic; }
+  .formula-const { color: var(--text); font-style: italic; }
+
+  /* Input grid */
+  .coeff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .input-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-mid);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .coeff-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+  }
+  .badge-a { background: rgba(56,189,248,0.15); color: var(--cyan); }
+  .badge-b { background: rgba(56,189,248,0.1); color: var(--cyan); }
+  .badge-c { background: rgba(240,180,41,0.15); color: var(--gold); }
+  .badge-d { background: rgba(240,180,41,0.1); color: var(--gold); }
+
+  .input-group input[type="number"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    -moz-appearance: textfield;
+  }
+  .input-group input[type="number"]::-webkit-inner-spin-button { display: none; }
+  .input-group input[type="number"]:focus {
+    border-color: var(--cyan-dim);
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.08);
+  }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 20px 0;
+  }
+
+  /* Slider */
+  .slider-section { margin-bottom: 20px; }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .slider-header span:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .slider-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--cyan);
+    background: rgba(56,189,248,0.08);
+    padding: 2px 10px;
+    border-radius: 6px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--dot-last);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 8px rgba(244,63,94,0.5);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--dot-last);
+    border: 2px solid var(--bg);
+    cursor: pointer;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .stat-val.current { color: var(--dot-last); }
+  .stat-val.limit { color: var(--gold); }
+
+  /* Error message */
+  .error-msg {
+    display: none;
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--red);
+    margin-top: 12px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .error-msg.show { display: block; }
+
+  /* Chart panel */
+  .chart-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .chart-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--text);
+  }
+  .chart-title span { color: var(--cyan); font-style: italic; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-mid);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .legend-line {
+    width: 24px; height: 2px;
+    border-bottom: 2px dashed var(--gold);
+  }
+  .legend-dot-last { background: var(--dot-last); }
+  .legend-dot-seq { background: var(--dot); }
+
+  canvas#chart {
+    width: 100% !important;
+    display: block;
+  }
+
+  /* Convergence badge */
+  .conv-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .conv-badge.converges {
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.4);
+    color: #a5b4fc;
+  }
+  .conv-badge.diverges {
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    color: var(--red);
+  }
+  .conv-badge::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  /* Info strip */
+  .info-strip {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .info-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .info-chip-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .info-chip-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: absolute;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="header-label">수열 극한 탐색기</div>
+    <h1>유리 수열의 <span>극한</span> 시각화</h1>
+    <p class="header-sub">계수 a, b, c, d를 조절하며 수열의 수렴 양상을 관찰하세요</p>
+  </header>
+
+  <div class="main-grid">
+    <!-- Left panel: controls -->
+    <div class="panel">
+      <div class="panel-title">// 수열 정의</div>
+
+      <!-- Formula display -->
+      <div class="formula-display">
+        <div class="fn-label">a<sub>n</sub> =</div>
+        <div class="formula-rendered">
+          <div class="formula-frac">
+            <div class="formula-num" id="fml-num">
+              <span class="formula-coeff" id="fml-a">4</span><span class="formula-var">n</span>
+              <span id="fml-b-part"> + <span class="formula-const" id="fml-b">7</span></span>
+            </div>
+            <div class="formula-bar" id="fml-bar"></div>
+            <div class="formula-den" id="fml-den">
+              <span class="formula-coeff" id="fml-c">2</span><span class="formula-var">n</span>
+              <span id="fml-d-part"> + <span class="formula-const" id="fml-d">3</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coefficient inputs -->
+      <div class="coeff-grid">
+        <div class="input-group">
+          <label><span class="coeff-badge badge-a">a</span> 분자 n 계수</label>
+          <input type="number" id="inp-a" value="4" step="1">
+        </div>
+        <div class="input-group">
+          <label><span class="coeff-badge badge-b">b</span> 분자 상수</label>
+          <input type="number" id="inp-b" value="7" step="1">
+        </div>
+        <div class="input-group">
+          <label><span class="coeff-badge badge-c">c</span> 분모 n 계수</label>
+          <input type="number" id="inp-c" value="2" step="1">
+        </div>
+        <div class="input-group">
+          <label><span class="coeff-badge badge-d">d</span> 분모 상수</label>
+          <input type="number" id="inp-d" value="3" step="1">
+        </div>
+      </div>
+
+      <div class="error-msg" id="error-msg">c ≠ 0 이어야 합니다</div>
+
+      <hr class="divider">
+
+      <!-- N Slider -->
+      <div class="slider-section">
+        <div class="slider-header">
+          <span>항 수 N</span>
+          <span class="slider-val" id="n-display">50</span>
+        </div>
+        <input type="range" id="slider-n" min="1" max="200" value="50">
+      </div>
+
+      <hr class="divider">
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">a<sub>N</sub> 값</div>
+          <div class="stat-val current" id="stat-an">2.00971</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">극한값</div>
+          <div class="stat-val limit" id="stat-lim">2</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: chart -->
+    <div class="chart-panel">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">수열 <span>a<sub>n</sub></span> 의 그래프</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+          <div id="conv-badge" class="conv-badge converges">수렴</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot legend-dot-seq"></div>수열 a<sub>n</sub></div>
+            <div class="legend-item"><div class="legend-dot legend-dot-last"></div>현재 N번째 항</div>
+            <div class="legend-item"><div class="legend-line"></div>극한값 L</div>
+          </div>
+        </div>
+      </div>
+      <canvas id="chart"></canvas>
+      <div class="info-strip">
+        <div class="info-chip">
+          <div class="info-chip-label">|a<sub>N</sub> − L|</div>
+          <div class="info-chip-val" id="info-err">—</div>
+        </div>
+        <div class="info-chip">
+          <div class="info-chip-label">극한 형태</div>
+          <div class="info-chip-val" id="info-form">a/c</div>
+        </div>
+        <div class="info-chip">
+          <div class="info-chip-label">수렴 속도</div>
+          <div class="info-chip-val" id="info-speed">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ——— State ———
+let A=4, B=7, C=2, D=3, N=50;
+let chartCtx, animFrame;
+
+// ——— Formula display ———
+function updateFormulaDisplay() {
+  const fmtCoeff = (v, isFirst=false) => {
+    if (v === 0) return '';
+    if (v === 1) return isFirst ? '' : '+ ';
+    if (v === -1) return isFirst ? '−' : '− ';
+    if (v < 0) return isFirst ? `${v}` : `− ${Math.abs(v)}`;
+    return isFirst ? `${v}` : `+ ${v}`;
+  };
+  const fmtConst = (v) => {
+    if (v === 0) return null;
+    if (v > 0) return { sign: '+', val: v };
+    return { sign: '−', val: Math.abs(v) };
+  };
+
+  // Numerator
+  let numHtml = '';
+  if (A !== 0) {
+    const c = A === 1 ? '' : A === -1 ? '−' : `${A}`;
+    numHtml += `<span class="formula-coeff">${c}</span><span class="formula-var">n</span>`;
+  }
+  const bInfo = fmtConst(B);
+  if (bInfo) {
+    numHtml += ` <span style="color:var(--text-dim)">${bInfo.sign}</span> <span class="formula-const">${bInfo.val}</span>`;
+  }
+  if (!numHtml) numHtml = '<span class="formula-const">0</span>';
+
+  // Denominator
+  let denHtml = '';
+  if (C !== 0) {
+    const c = C === 1 ? '' : C === -1 ? '−' : `${C}`;
+    denHtml += `<span class="formula-coeff">${c}</span><span class="formula-var">n</span>`;
+  }
+  const dInfo = fmtConst(D);
+  if (dInfo) {
+    denHtml += ` <span style="color:var(--text-dim)">${dInfo.sign}</span> <span class="formula-const">${dInfo.val}</span>`;
+  }
+  if (!denHtml) denHtml = '<span class="formula-const">0</span>';
+
+  document.querySelector('.formula-num').innerHTML = numHtml;
+  document.querySelector('.formula-den').innerHTML = denHtml;
+}
+
+// ——— Compute ———
+function seqVal(n) {
+  const den = C * n + D;
+  if (den === 0) return null;
+  return (A * n + B) / den;
+}
+function limitVal() {
+  if (C === 0) return null;
+  return A / C;
+}
+
+// ——— Update stats ———
+function updateStats() {
+  const an = seqVal(N);
+  const L = limitVal();
+  const anStr = an !== null ? an.toFixed(5) : '정의불가';
+  const limStr = L !== null ? (Number.isInteger(L) ? L.toString() : L.toFixed(4)) : '∞';
+
+  document.getElementById('stat-an').textContent = anStr;
+  document.getElementById('stat-lim').textContent = limStr;
+  document.getElementById('n-display').textContent = N;
+
+  if (L !== null && an !== null) {
+    const err = Math.abs(an - L);
+    document.getElementById('info-err').textContent = err < 1e-10 ? '≈ 0' : err.toExponential(3);
+    document.getElementById('info-form').textContent = `${A}/${C}`;
+    const spd = err < 0.001 ? '빠름' : err < 0.01 ? '보통' : '느림';
+    document.getElementById('info-speed').textContent = spd;
+
+    const badge = document.getElementById('conv-badge');
+    badge.className = 'conv-badge converges';
+    badge.textContent = '수렴';
+  } else if (C === 0) {
+    document.getElementById('info-err').textContent = '—';
+    document.getElementById('info-form').textContent = 'c=0 → ∞';
+    document.getElementById('info-speed').textContent = '발산';
+    const badge = document.getElementById('conv-badge');
+    badge.className = 'conv-badge diverges';
+    badge.textContent = '발산';
+  }
+
+  const errMsg = document.getElementById('error-msg');
+  errMsg.classList.toggle('show', C === 0);
+}
+
+// ——— Chart ———
+let myChart = null;
+
+function buildChart() {
+  const canvas = document.getElementById('chart');
+  if (!chartCtx) chartCtx = canvas.getContext('2d');
+
+  const L = limitVal();
+  const ns = [], vals = [];
+  const maxN = N;
+
+  for (let i = 1; i <= maxN; i++) {
+    const v = seqVal(i);
+    if (v !== null) { ns.push(i); vals.push(v); }
+  }
+
+  // Determine y range
+  let yMin = Infinity, yMax = -Infinity;
+  vals.forEach(v => { yMin = Math.min(yMin, v); yMax = Math.max(yMax, v); });
+  if (L !== null) { yMin = Math.min(yMin, L); yMax = Math.max(yMax, L); }
+  const yPad = Math.max((yMax - yMin) * 0.25, 0.5);
+  const yLo = yMin - yPad;
+  const yHi = yMax + yPad;
+
+  // Colors for gradient effect: earlier dots lighter
+  const dotColors = vals.map((_, i) => {
+    if (i === vals.length - 1) return 'rgba(244,63,94,1)';
+    const t = i / (vals.length - 1);
+    const alpha = 0.3 + 0.5 * t;
+    return `rgba(99,102,241,${alpha})`;
+  });
+  const dotRadii = vals.map((_, i) => i === vals.length - 1 ? 7 : 4);
+
+  // Build datasets
+  const datasets = [{
+    label: 'aₙ',
+    data: vals,
+    pointBackgroundColor: dotColors,
+    pointBorderColor: dotColors,
+    pointRadius: dotRadii,
+    pointHoverRadius: 8,
+    showLine: false,
+    borderWidth: 0,
+  }];
+
+  // Limit line
+  if (L !== null) {
+    datasets.push({
+      label: 'lim = ' + (Number.isInteger(L) ? L : L.toFixed(4)),
+      data: ns.map(() => L),
+      pointRadius: 0,
+      showLine: true,
+      borderColor: 'rgba(240,180,41,0.55)',
+      borderWidth: 2,
+      borderDash: [8, 5],
+      tension: 0,
+    });
+  }
+
+  if (myChart) {
+    myChart.data.labels = ns;
+    myChart.data.datasets[0].data = vals;
+    myChart.data.datasets[0].pointBackgroundColor = dotColors;
+    myChart.data.datasets[0].pointBorderColor = dotColors;
+    myChart.data.datasets[0].pointRadius = dotRadii;
+    if (L !== null && myChart.data.datasets.length > 1) {
+      myChart.data.datasets[1].data = ns.map(() => L);
+      myChart.data.datasets[1].label = 'lim = ' + (Number.isInteger(L) ? L : L.toFixed(4));
+    } else if (L !== null && myChart.data.datasets.length === 1) {
+      myChart.data.datasets.push(datasets[1]);
+    } else if (L === null && myChart.data.datasets.length > 1) {
+      myChart.data.datasets.splice(1);
+    }
+    myChart.options.scales.y.min = yLo;
+    myChart.options.scales.y.max = yHi;
+    myChart.update('none');
+    return;
+  }
+
+  const config = {
+    type: 'scatter',
+    data: { labels: ns, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.85,
+      animation: { duration: 300, easing: 'easeOutCubic' },
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2235',
+          borderColor: '#1e2d45',
+          borderWidth: 1,
+          titleFont: { family: 'JetBrains Mono', size: 11 },
+          bodyFont: { family: 'JetBrains Mono', size: 12 },
+          callbacks: {
+            title: ctx => `n = ${ctx[0].raw.x ?? ctx[0].label ?? ns[ctx[0].dataIndex]}`,
+            label: ctx => ` aₙ = ${Number(ctx.raw.y ?? ctx.raw).toFixed(6)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'n', color: '#64748b', font: { family: 'Playfair Display', style: 'italic', size: 14 } },
+          grid: { color: 'rgba(30,45,69,0.8)', lineWidth: 1 },
+          ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 11 }, maxTicksLimit: 10 },
+          border: { color: '#1e2d45' }
+        },
+        y: {
+          min: yLo, max: yHi,
+          title: { display: true, text: 'aₙ', color: '#64748b', font: { family: 'Playfair Display', style: 'italic', size: 14 } },
+          grid: { color: 'rgba(30,45,69,0.8)', lineWidth: 1 },
+          ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 11 }, maxTicksLimit: 8 },
+          border: { color: '#1e2d45' }
+        }
+      }
+    }
+  };
+
+  // Scatter needs x,y pairs
+  config.data.datasets[0].data = vals.map((v, i) => ({ x: ns[i], y: v }));
+  if (L !== null) config.data.datasets[1].data = ns.map(n => ({ x: n, y: L }));
+
+  myChart = new Chart(chartCtx, config);
+}
+
+function update() {
+  updateFormulaDisplay();
+  updateStats();
+  // rebuild chart with x,y pairs
+  const L = limitVal();
+  const ns = [], vals = [];
+  for (let i = 1; i <= N; i++) {
+    const v = seqVal(i);
+    if (v !== null) { ns.push(i); vals.push(v); }
+  }
+
+  let yMin = Infinity, yMax = -Infinity;
+  vals.forEach(v => { yMin = Math.min(yMin, v); yMax = Math.max(yMax, v); });
+  if (L !== null) { yMin = Math.min(yMin, L); yMax = Math.max(yMax, L); }
+  const yPad = Math.max((yMax - yMin) * 0.25, 0.5);
+  const yLo = vals.length ? yMin - yPad : -1;
+  const yHi = vals.length ? yMax + yPad : 5;
+
+  const dotColors = vals.map((_, i) => {
+    if (i === vals.length - 1) return 'rgba(244,63,94,1)';
+    const t = i / Math.max(vals.length - 1, 1);
+    return `rgba(99,102,241,${0.3 + 0.5 * t})`;
+  });
+  const dotRadii = vals.map((_, i) => i === vals.length - 1 ? 8 : 4);
+  const xyData = vals.map((v, i) => ({ x: ns[i], y: v }));
+
+  if (!myChart) {
+    buildChart();
+    return;
+  }
+
+  myChart.data.datasets[0].data = xyData;
+  myChart.data.datasets[0].pointBackgroundColor = dotColors;
+  myChart.data.datasets[0].pointBorderColor = dotColors;
+  myChart.data.datasets[0].pointRadius = dotRadii;
+
+  if (L !== null) {
+    const limData = ns.map(n => ({ x: n, y: L }));
+    const limLabel = 'lim = ' + (Number.isInteger(L) ? L : L.toFixed(4));
+    if (myChart.data.datasets.length > 1) {
+      myChart.data.datasets[1].data = limData;
+      myChart.data.datasets[1].label = limLabel;
+    } else {
+      myChart.data.datasets.push({
+        label: limLabel, data: limData, pointRadius: 0, showLine: true,
+        borderColor: 'rgba(240,180,41,0.55)', borderWidth: 2, borderDash: [8,5], tension: 0
+      });
+    }
+  } else {
+    if (myChart.data.datasets.length > 1) myChart.data.datasets.splice(1);
+  }
+
+  myChart.options.scales.y.min = yLo;
+  myChart.options.scales.y.max = yHi;
+  myChart.update('none');
+}
+
+// ——— Event listeners ———
+document.getElementById('inp-a').addEventListener('input', e => { A = parseFloat(e.target.value)||0; update(); });
+document.getElementById('inp-b').addEventListener('input', e => { B = parseFloat(e.target.value)||0; update(); });
+document.getElementById('inp-c').addEventListener('input', e => { C = parseFloat(e.target.value)||0; update(); });
+document.getElementById('inp-d').addEventListener('input', e => { D = parseFloat(e.target.value)||0; update(); });
+document.getElementById('slider-n').addEventListener('input', e => { N = parseInt(e.target.value); update(); });
+
+// ——— Init ———
+window.addEventListener('DOMContentLoaded', () => {
+  // Load Chart.js
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+  script.onload = () => { update(); };
+  document.head.appendChild(script);
+});
+</script>
+</body>
+</html>
